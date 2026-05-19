@@ -1,0 +1,9 @@
+[server]
+# transformers ships submodules that import torchvision lazily; the default
+# watcher walks every submodule on each rerun which floods the console with
+# tracebacks for the ones we never actually use. "poll" inspects files by mtime
+# instead of importing them.
+fileWatcherType = "poll"
+
+[browser]
+gatherUsageStats = false
