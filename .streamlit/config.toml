@@ -1,9 +1,11 @@
 [server]
-# transformers ships submodules that import torchvision lazily; the default
-# watcher walks every submodule on each rerun which floods the console with
-# tracebacks for the ones we never actually use. "poll" inspects files by mtime
-# instead of importing them.
-fileWatcherType = "poll"
+# transformers ships submodules whose __init__ lazily imports torchvision.
+# Streamlit's watcher walks sys.modules and probes hasattr(m, "__path__")
+# on every entry — that probe triggers the lazy import and floods the
+# console with ModuleNotFoundError tracebacks for vision modules we never
+# touch. "poll" still walks modules; only "none" stops it entirely.
+# Trade-off: lose hot-reload on .py edits — restart the app instead.
+fileWatcherType = "none"
 
 [browser]
 gatherUsageStats = false
