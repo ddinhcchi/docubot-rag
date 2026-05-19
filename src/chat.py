@@ -3,21 +3,33 @@ from dataclasses import dataclass
 from groq import Groq
 
 from .ingest import Chunk
+from .lang import LANGUAGE_NAMES, detect_language
 
 SYSTEM_PROMPT = """You are a precise assistant that answers questions grounded ONLY in the provided sources.
 
-Rules:
-- If the answer is not contained in the sources, reply: "I cannot find this in the provided documents."
-- Cite the supporting source after each claim using the format [source_name, page N].
-- Reply in the same language the user asked in (e.g. Vietnamese question → Vietnamese answer).
-- Be concise. Prefer bullet points over long paragraphs.
+Hard rules — follow every time:
+1. LANGUAGE LOCK: respond in the SAME language as the user's most recent question.
+   - English question → English answer only. Do NOT translate to Vietnamese.
+   - Vietnamese question → Vietnamese answer only. Do NOT translate to English.
+   - A per-question REPLY_LANGUAGE directive is given below; obey it strictly.
+2. If the answer is not contained in the sources, say so in the reply language:
+   - en: "I cannot find this in the provided documents."
+   - vi: "Tôi không tìm thấy thông tin này trong tài liệu."
+3. Cite the supporting source after each claim using [source_name, page N].
+4. Be concise. Prefer bullet points over long paragraphs.
 """
+
+_NO_ANSWER = {
+    "en": "I have no documents indexed yet. Upload a PDF or DOCX first.",
+    "vi": "Chưa có tài liệu nào trong index. Hãy tải lên PDF hoặc DOCX trước.",
+}
 
 
 @dataclass
 class Answer:
     text: str
     sources: list[Chunk]
+    language: str
 
 
 class Chatter:
@@ -36,15 +48,25 @@ class Chatter:
         return "\n".join(lines)
 
     def ask(self, question: str, sources: list[Chunk]) -> Answer:
+        lang = detect_language(question)
         if not sources:
-            return Answer(
-                text="I have no documents indexed yet. Upload a PDF or DOCX first.",
-                sources=[],
-            )
+            return Answer(text=_NO_ANSWER[lang], sources=[], language=lang)
+
+        lang_name = LANGUAGE_NAMES[lang]
+        directive_top = (
+            f"REPLY_LANGUAGE: {lang_name}. The entire response — including any "
+            f"phrases like 'cannot find' or citation labels — MUST be in {lang_name}."
+        )
+        directive_tail = (
+            f"Final reminder: answer ONLY in {lang_name}. Nothing else."
+        )
+
         user_prompt = (
+            f"{directive_top}\n\n"
             f"Sources:\n{self._format_sources(sources)}\n\n"
             f"Question: {question}\n\n"
-            "Answer (with citations):"
+            f"{directive_tail}\n"
+            f"Answer (with [source, page] citations):"
         )
         resp = self.client.chat.completions.create(
             model=self.model,
@@ -52,10 +74,11 @@ class Chatter:
                 {"role": "system", "content": SYSTEM_PROMPT},
                 {"role": "user", "content": user_prompt},
             ],
-            temperature=0.2,
-            max_tokens=600,
+            temperature=0.1,
+            max_tokens=700,
         )
         return Answer(
             text=resp.choices[0].message.content or "",
             sources=sources,
+            language=lang,
         )
