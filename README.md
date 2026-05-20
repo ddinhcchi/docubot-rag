@@ -102,6 +102,18 @@ All knobs live in `.env`:
 | `CHROMA_DIR` | `.chroma` | Local persistent vector store |
 | `RATE_LIMIT_PER_MINUTE` | 10 | Questions per minute (sliding window). `0` disables. |
 
+### Picking a Groq model
+
+Groq's free tier is generous but rate-limited per model. As of writing the limits are roughly 30 req/min for the 8B models and 30 req/min for the 70B (your dashboard shows live quotas). Pick by job:
+
+| Model | When to use it |
+|---|---|
+| `llama-3.1-8b-instant` *(default)* | Demos, short factual answers, dense citations. ~200 tok/s, lowest latency, follows the language-lock prompt well after the v2 fix. |
+| `llama-3.3-70b-versatile` | Long synthesis questions, contracts with cross-references, anything where reasoning matters more than latency. ~100 tok/s. |
+| `mixtral-8x7b-32768` | Long single-document QA (32k context) where you'd rather skip retrieval entirely and stuff the whole doc. Higher hallucination risk if you do. |
+
+Switch any time by editing `GROQ_MODEL` in `.env` and restarting — no code change required.
+
 ---
 
 ## Run with Docker
