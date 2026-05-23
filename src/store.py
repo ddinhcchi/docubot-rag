@@ -49,19 +49,25 @@ class VectorStore:
         result = self.collection.query(
             query_embeddings=emb,
             n_results=top_k,
-            include=["documents", "metadatas"],
+            include=["documents", "metadatas", "distances"],
         )
         out: list[Chunk] = []
         docs = result["documents"][0] if result["documents"] else []
         metas = result["metadatas"][0] if result["metadatas"] else []
         ids = result["ids"][0] if result["ids"] else []
-        for chunk_id, text, meta in zip(ids, docs, metas):
+        # ChromaDB returns cosine *distance* (0 = identical, 2 = opposite);
+        # convert to similarity in [-1, 1] — for normalized embeddings this is
+        # effectively bounded to [0, 1] for natural language queries.
+        dists = result["distances"][0] if result.get("distances") else [None] * len(ids)
+        for chunk_id, text, meta, dist in zip(ids, docs, metas, dists):
+            similarity = None if dist is None else round(1.0 - float(dist), 4)
             out.append(
                 Chunk(
                     text=text,
                     source=str(meta.get("source", "")),
                     page=int(meta.get("page", 0)),
                     chunk_id=chunk_id,
+                    score=similarity,
                 )
             )
         return out

@@ -13,6 +13,7 @@ class Chunk:
     source: str
     page: int
     chunk_id: str
+    score: float | None = None  # cosine similarity, populated by VectorStore.search
 
 
 def _hash(text: str) -> str:

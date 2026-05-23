@@ -90,11 +90,18 @@ with st.sidebar:
 if "history" not in st.session_state:
     st.session_state.history = []
 
+def _expander_label(source: str, page: int, score: float | None) -> str:
+    base = f"📄 {source}, page {page}"
+    if score is None:
+        return base
+    return f"{base}  ·  similarity {score:.2f}"
+
+
 for entry in st.session_state.history:
     with st.chat_message(entry["role"]):
         st.markdown(entry["content"])
         for src in entry.get("sources", []):
-            with st.expander(f"📄 {src['source']}, page {src['page']}"):
+            with st.expander(_expander_label(src["source"], src["page"], src.get("score"))):
                 st.write(src["text"])
 
 prompt = st.chat_input("Ask a question about your documents…")
@@ -119,7 +126,7 @@ if prompt:
             answer = chatter.ask(prompt, hits)
         st.markdown(answer.text)
         for src in answer.sources:
-            with st.expander(f"📄 {src.source}, page {src.page}"):
+            with st.expander(_expander_label(src.source, src.page, src.score)):
                 st.write(src.text)
 
     st.session_state.history.append(
@@ -127,7 +134,7 @@ if prompt:
             "role": "assistant",
             "content": answer.text,
             "sources": [
-                {"source": s.source, "page": s.page, "text": s.text}
+                {"source": s.source, "page": s.page, "text": s.text, "score": s.score}
                 for s in answer.sources
             ],
         }
