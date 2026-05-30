@@ -1,0 +1,21 @@
+# gitleaks v8 custom config — extends the default ruleset with project-specific
+# allowlists so documentation placeholders don't trigger false positives.
+#
+# Test locally:   gitleaks detect --source . --config .gitleaks.toml --verbose
+
+[extend]
+useDefault = true
+
+[[allowlists]]
+description = "Documentation placeholders are not secrets"
+paths = [
+    '''\.env\.example$''',
+    '''README\.md$''',
+]
+
+[[allowlists]]
+description = "The literal `gsk_...` placeholder in README is not a real Groq API key"
+regexes = [
+    '''gsk_\.\.\.''',
+    '''GROQ_API_KEY=gsk_\.\.\.''',
+]

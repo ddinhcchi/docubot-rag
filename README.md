@@ -137,6 +137,26 @@ The image pre-downloads the embedding model so first query is fast.
 
 ---
 
+## Security — secret scanning
+
+The repo wires up [`gitleaks`](https://github.com/gitleaks/gitleaks) via [`pre-commit`](https://pre-commit.com) so a real Groq API key (or any other credential) can never end up in a commit by accident. The hook runs locally on every `git commit` and blocks the commit if anything matches.
+
+```bash
+brew install gitleaks pre-commit   # macOS — Linux users: pipx install both
+pre-commit install                  # installs the .git/hooks/pre-commit shim
+pre-commit run --all-files          # scan everything already in the index
+gitleaks detect --source . --verbose # scan the full git history
+```
+
+[`.gitleaks.toml`](.gitleaks.toml) extends the default ruleset with two allowlists:
+
+- `.env.example` and `README.md` — they intentionally contain placeholder credentials
+- The literal `gsk_...` ellipsis token shown in the README is not a real Groq key — Groq keys are 56 characters, this one is 6
+
+For deployments, also enable [GitHub Push Protection](https://docs.github.com/en/code-security/secret-scanning/push-protection-for-repositories-and-organizations) as a second line of defence — server-side scanning catches anyone who skipped `pre-commit install`.
+
+---
+
 ## Roadmap
 
 - BM25 hybrid retrieval (better for short, keyword-heavy queries)
