@@ -42,6 +42,12 @@ chatter = get_chatter()
 limiter = get_limiter()
 
 with st.sidebar:
+    st.subheader("Retrieval")
+    hybrid_alpha = st.slider(
+        "BM25 weight (0 = semantic only, 1 = keyword only)",
+        0.0, 1.0, settings.hybrid_alpha, 0.05,
+        help="Dense + BM25 hybrid. 0.3 default leans semantic but lets exact-match queries through.",
+    )
     st.subheader("Index")
     st.metric("Chunks indexed", store.count())
     if store.sources():
@@ -122,7 +128,7 @@ if prompt:
 
     with st.chat_message("assistant"):
         with st.spinner("Searching documents and asking the model…"):
-            hits = store.search(prompt, top_k=settings.top_k)
+            hits = store.search(prompt, top_k=settings.top_k, alpha=hybrid_alpha)
             answer = chatter.ask(prompt, hits)
         st.markdown(answer.text)
         for src in answer.sources:
