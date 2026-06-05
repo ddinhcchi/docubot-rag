@@ -17,6 +17,8 @@ class Settings:
     chunk_size: int = int(os.getenv("CHUNK_SIZE", "500"))
     chunk_overlap: int = int(os.getenv("CHUNK_OVERLAP", "80"))
     top_k: int = int(os.getenv("TOP_K", "4"))
+    # 0.0 = dense only (semantic), 1.0 = bm25 only (keyword)
+    hybrid_alpha: float = float(os.getenv("HYBRID_ALPHA", "0.3"))
     chroma_dir: str = os.getenv("CHROMA_DIR", ".chroma")
     rate_limit_per_minute: int = int(os.getenv("RATE_LIMIT_PER_MINUTE", "10"))
 
