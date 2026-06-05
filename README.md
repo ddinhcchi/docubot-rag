@@ -14,6 +14,7 @@ Upload a PDF / DOCX / TXT, ask questions in English **or** Vietnamese, get answe
 
 - **Citations every answer** — the system prompt forces `[source, page N]` after each claim. No hallucinated page references.
 - **Multilingual out of the box** — `paraphrase-multilingual-MiniLM-L12-v2` handles VN/EN/50+ langs.
+- **Hybrid retrieval** — dense embeddings + BM25 keyword scoring with a tunable α. Catches both paraphrased questions *and* exact-keyword queries (rare names, regex patterns, version numbers) that pure semantic search drops.
 - **Cheap inference** — Groq free tier (Llama 3.1 8B) at ~200 tok/s, no credit card.
 - **Sliding-window rate limit** for safe public deploys — your free quota stays yours.
 - **Persistent ChromaDB** so re-launching the app keeps your index.
@@ -31,8 +32,8 @@ Upload a PDF / DOCX / TXT, ask questions in English **or** Vietnamese, get answe
                             ┌──────────────────────────────────────┘
                             ▼
                 ┌─────────────────────────┐    ┌───────────────────┐
-                │ top-k cosine retrieval  │ → │ Groq Llama 3.1 8B │
-                │   + page metadata       │    │   + citation rule │
+                │ hybrid retrieval        │ → │ Groq Llama 3.1 8B │
+                │   dense + BM25, top-k   │    │   + citation rule │
                 └─────────────────────────┘    └───────────────────┘
 ```
 
@@ -41,7 +42,7 @@ Upload a PDF / DOCX / TXT, ask questions in English **or** Vietnamese, get answe
 | File | Responsibility |
 |---|---|
 | [`src/ingest.py`](src/ingest.py) | PDF / DOCX / TXT loaders + recursive chunk splitter with page metadata |
-| [`src/store.py`](src/store.py) | `VectorStore` — persistent ChromaDB + sentence-transformer encoder |
+| [`src/store.py`](src/store.py) | `VectorStore` — ChromaDB + BM25 hybrid retrieval, sentence-transformer encoder |
 | [`src/chat.py`](src/chat.py) | Groq client + system prompt that forces inline citations |
 | [`src/rate_limit.py`](src/rate_limit.py) | Sliding-window rate limiter (per-IP / per-key) |
 | [`src/config.py`](src/config.py) | `.env`-driven settings |
@@ -99,6 +100,7 @@ All knobs live in `.env`:
 | `CHUNK_SIZE` | 500 | Characters per chunk |
 | `CHUNK_OVERLAP` | 80 | Sliding overlap between chunks |
 | `TOP_K` | 4 | Number of chunks retrieved per question |
+| `HYBRID_ALPHA` | 0.3 | `0.0` = dense only, `1.0` = BM25 only, in between = weighted combine |
 | `CHROMA_DIR` | `.chroma` | Local persistent vector store |
 | `RATE_LIMIT_PER_MINUTE` | 10 | Questions per minute (sliding window). `0` disables. |
 
@@ -134,6 +136,7 @@ The image pre-downloads the embedding model so first query is fast.
 - **Page numbers are preserved end-to-end** — from `pypdf` reader → chunk metadata → retrieval result → LLM prompt → citation in answer.
 - **System prompt is strict** — explicit "if not in sources, say so" reduces hallucinated citations dramatically vs. an unconstrained prompt.
 - **Rate limit is per-key** — drop in a real per-IP key from `streamlit.session_state` or your reverse proxy when going public.
+- **Hybrid retrieval, not just dense** — BM25 lives in-memory and is rebuilt on add. The cost is negligible (a few ms for 1 k chunks) and it dodges the well-documented failure mode where semantic embeddings miss exact-match queries like proper nouns, code identifiers, or version strings.
 
 ---
 
@@ -159,7 +162,6 @@ For deployments, also enable [GitHub Push Protection](https://docs.github.com/en
 
 ## Roadmap
 
-- BM25 hybrid retrieval (better for short, keyword-heavy queries)
 - Per-document "delete" button (currently it's all-or-nothing reset)
 - Streaming responses via Groq's SSE API
 - OCR for scanned PDFs (Tesseract / PaddleOCR)
