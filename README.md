@@ -160,6 +160,22 @@ For deployments, also enable [GitHub Push Protection](https://docs.github.com/en
 
 ---
 
+## Streaming responses
+
+`Chatter.ask_stream` consumes Groq's SSE stream and yields tokens as they arrive. The Streamlit UI renders them with `st.write_stream`, so the first character of the answer typically lands in <200 ms — far snappier than waiting 1–3 s for the full completion to assemble.
+
+```python
+for piece in chatter.ask_stream(question, hits):
+    print(piece, end="", flush=True)   # CLI usage
+
+# or in a Streamlit app:
+text = st.write_stream(chatter.ask_stream(question, hits))
+```
+
+The non-streaming `chatter.ask(...)` still exists as a convenience wrapper — it consumes the same generator and returns an `Answer` dataclass with the full text plus citations.
+
+---
+
 ## Roadmap
 
 - Per-document "delete" button (currently it's all-or-nothing reset)
