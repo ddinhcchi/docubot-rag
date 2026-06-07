@@ -127,21 +127,28 @@ if prompt:
         st.markdown(prompt)
 
     with st.chat_message("assistant"):
-        with st.spinner("Searching documents and asking the model…"):
+        with st.spinner("Searching documents…"):
             hits = store.search(prompt, top_k=settings.top_k, alpha=hybrid_alpha)
-            answer = chatter.ask(prompt, hits)
-        st.markdown(answer.text)
-        for src in answer.sources:
+
+        if not hits:
+            # Avoid streaming a hard-coded "no docs" message — render once.
+            answer_text = chatter.ask(prompt, hits).text
+            st.markdown(answer_text)
+        else:
+            # Streaming response — first token arrives in <200 ms typically
+            answer_text = st.write_stream(chatter.ask_stream(prompt, hits))
+
+        for src in hits:
             with st.expander(_expander_label(src.source, src.page, src.score)):
                 st.write(src.text)
 
     st.session_state.history.append(
         {
             "role": "assistant",
-            "content": answer.text,
+            "content": answer_text,
             "sources": [
                 {"source": s.source, "page": s.page, "text": s.text, "score": s.score}
-                for s in answer.sources
+                for s in hits
             ],
         }
     )
